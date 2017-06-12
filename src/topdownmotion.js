@@ -1,20 +1,20 @@
 /*global Phaser*/
 
-var game = new Phaser.Game(800, 680, Phaser.AUTO, 'TutContainer', { preload: preload, create: create});
+var game = new Phaser.Game(800, 680, Phaser.AUTO, 'TutContainer', { preload: preload, create: create, update:update});
 
 //horizontal tile shaped level
 var levelData=
 [[-1,-1,-1,10,10,10,10,10,10,10,-1,-1,-1],
 [-1,-1,10,0,0,0,0,0,0,10,-1,-1,-1],
-[-1,-1,10,0,0,0,0,0,0,0,10,-1,-1],
+[-1,-1,10,0,0,0,0,10,10,0,10,-1,-1],
+[-1,10,10,0,0,0,0,0,0,0,10,-1,-1],
+[-1,10,0,0,10,0,0,2,0,0,10,10,-1],
+[10,0,0,10,0,10,0,0,0,0,0,10,-1],
+[10,0,0,10,0,0,10,0,0,0,0,0,10],
+[10,0,0,0,0,0,0,10,0,0,0,10,-1],
+[-1,10,10,0,0,0,0,0,0,0,0,10,-1],
 [-1,10,0,0,0,0,0,0,0,0,10,-1,-1],
-[-1,10,0,0,0,0,0,0,0,0,0,10,-1],
-[10,0,0,0,0,0,0,0,0,0,0,10,-1],
-[10,0,0,0,0,0,0,0,0,0,0,0,10],
-[10,0,0,0,0,0,0,0,0,0,0,10,-1],
-[-1,10,0,0,0,0,0,0,0,0,0,10,-1],
-[-1,10,0,0,0,0,0,0,0,0,10,-1,-1],
-[-1,-1,10,0,0,0,0,0,0,0,10,-1,-1],
+[-1,-1,10,0,10,10,0,0,10,0,10,-1,-1],
 [-1,-1,10,0,0,0,0,0,0,10,-1,-1,-1],
 [-1,-1,-1,10,10,10,10,10,10,10,-1,-1,-1]];
 
@@ -22,35 +22,36 @@ var bmpText;
 var hexTileHeight=61;
 var hexTileWidth=52;
 var hexGrid;
-var infoTxt;
+//var infoTxt;
 var rootThree;
 var sideLength;
+var heroSpritePos=new Phaser.Point();
+var hero;
+var movementVector=new Phaser.Point();
+var speed=2;
+var heroSize=15;
 
 function preload() {
     //load all necessary assets
     game.load.bitmapFont('font', 'assets/font.png', 'assets/font.xml');
     game.load.image('hex', 'assets/hexsmall.png');
+    game.load.image('char', 'assets/hero_tile_small.png');
 }
 
 function create() {
     rootThree=Math.sqrt(3);
     sideLength=hexTileHeight/2;
-    bmpText = game.add.bitmapText(10, 10, 'font', 'Cubic\nTap to find tile', 18);
+    bmpText = game.add.bitmapText(10, 10, 'font', 'Move Character\nUse A,W,E,D,X,Z', 18);
     game.stage.backgroundColor = '#cccccc';
     createLevel();
-    infoTxt=game.add.text(10,50,'0,0');
+    //infoTxt=game.add.text(10,50,'0,0');
     
-    //game.input.onHold.add(onHold);//hold to clear path
-    //game.input.holdRate=500;
     // Maintain aspect ratio
     game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
-    
-    game.input.onTap.add(onTap);//tap to find tile
 }
 
 function createLevel(){
     hexGrid=game.add.group();
-   
     var tileX;
     var tileY;
     var hexTile;
@@ -66,6 +67,13 @@ function createLevel(){
             screenPoint=axialToScreen(axialPoint);
             
             if(levelData[i][j]!=-1){
+                if(levelData[i][j]==2)//hero
+                {
+                   levelData[i][j]=0;
+                   heroSpritePos.x=screenPoint.x;
+                   heroSpritePos.y=screenPoint.y;
+                }
+                
                 hexTile= new HexTileNode(game, screenPoint.x, screenPoint.y, 'hex', false,i,j,levelData[i][j]);
                 hexGrid.add(hexTile);
                 //console.log(screenPoint.x+':'+ screenPoint.y);
@@ -73,22 +81,91 @@ function createLevel(){
         }
         
     }
-    hexGrid.x=hexTileWidth/2;
-    hexGrid.y=sideLength;
+    hero=game.make.sprite(heroSpritePos.x, heroSpritePos.y, 'char');
+    hero.anchor.setTo(0.5, 0.5);
+    hexGrid.add(hero);
+    hexGrid.x=30;
+    hexGrid.y=50;
 }
-function onTap(){
-    var tile= findCubicHexTile();
-    infoTxt.text='tap '+tile.x+':'+tile.y;
-    //convert to offset
-    tile=axialToOffset(tile);
-    if(!checkforBoundary(tile.x,tile.y)){
-        if(!checkForOccuppancy(tile.x,tile.y)){
-            var hexTile=hexGrid.getByName("tile"+tile.x+"_"+tile.y);
-            hexTile.showAxial();
-        }
-    }
+function update(){
+   if(game.input.keyboard.isDown(Phaser.Keyboard.A)){
+       moveLeft();
+   }else if(game.input.keyboard.isDown(Phaser.Keyboard.D)){
+       moveRight();
+   }else if(game.input.keyboard.isDown(Phaser.Keyboard.W)){
+       moveTopLeft();
+   }else if(game.input.keyboard.isDown(Phaser.Keyboard.E)){
+       moveTopRight();
+   }else if(game.input.keyboard.isDown(Phaser.Keyboard.Z)){
+       moveBottomLeft();
+   }else if(game.input.keyboard.isDown(Phaser.Keyboard.X)){
+       moveBottomRight();
+   }
 }
 
+function moveLeft(){
+    movementVector.x=movementVector.y=0;
+    movementVector.x=-1*speed;
+    CheckCollisionAndMove();
+}
+function moveRight(){
+    movementVector.x=movementVector.y=0;
+    movementVector.x=speed;
+    CheckCollisionAndMove();
+}
+function moveTopLeft(){
+    movementVector.x=-0.5*speed;//Cos60
+    movementVector.y=-0.866*speed;//sine60
+    CheckCollisionAndMove();
+}
+function moveTopRight(){
+    movementVector.x=0.5*speed;//Cos60
+    movementVector.y=-0.866*speed;//sine60
+    CheckCollisionAndMove();
+}
+function moveBottomRight(){
+    movementVector.x=0.5*speed;//Cos60
+    movementVector.y=0.866*speed;//sine60
+    CheckCollisionAndMove();
+}
+function moveBottomLeft(){
+    movementVector.x=-0.5*speed;//Cos60
+    movementVector.y=0.866*speed;//sine60
+    CheckCollisionAndMove();
+}
+function CheckCollisionAndMove(){
+    var tempPos=new Phaser.Point();
+    tempPos.x=hero.x+movementVector.x;
+    tempPos.y=hero.y+movementVector.y;
+    var corner=new Phaser.Point();
+    //check tl
+    corner.x=tempPos.x-heroSize/2;
+    corner.y=tempPos.y-heroSize/2;
+    if(checkCorner(corner))return;
+    //check tr
+    corner.x=tempPos.x+heroSize/2;
+    corner.y=tempPos.y-heroSize/2;
+    if(checkCorner(corner))return;
+    //check bl
+    corner.x=tempPos.x-heroSize/2;
+    corner.y=tempPos.y+heroSize/2;
+    if(checkCorner(corner))return;
+    //check br
+    corner.x=tempPos.x+heroSize/2;
+    corner.y=tempPos.y+heroSize/2;
+    if(checkCorner(corner))return;
+    
+    hero.x=tempPos.x;
+    hero.y=tempPos.y;
+}
+function checkCorner(corner){
+    corner=screenToAxial(corner);
+    corner=axialToOffset(corner);
+    if(checkForOccuppancy(corner.x,corner.y)){
+        return true;
+    }
+    return false;
+}
 function findCubicHexTile(){
     var pos=game.input.activePointer.position;
     pos.x-=hexGrid.x;
