@@ -6,7 +6,7 @@ HexTileNode = function (game, x, y, tileImage,isVertical, i,j, type) {
     this.tileTag = game.make.text(0,0,type);
     //this.tileTag = game.make.text(0,0,'i'+(i)+',j'+(j));
     //this.tileTag = game.make.text(0,0,'i'+(i-6)+',j'+(j-6));
-        
+    this.tileTag.touchEnabled=false;    
     this.tileTag.anchor.setTo(0.5, 0.5);
     this.tileTag.addColor('#ffffff',0);
     if(isVertical){
@@ -49,8 +49,13 @@ HexTileNode.prototype.toggleMark=function(){
 HexTileNode.prototype.showDifference=function(){
     //this.getHeuristic(i,j);
     this.tint=Phaser.Color.interpolateColor('0x0000ff','0xffffff',12, this.heuristic,1);//'0xffffff';
-    this.tileTag.visible=true;       
+    this.tileTag.visible=true;  
     this.tileTag.text = this.heuristic+';'+this.cost;
+}
+HexTileNode.prototype.showAxial=function(){
+    this.tileTag.visible=true;   
+    var axialJ=(this.originalj-(Math.floor(this.originali/2)))
+    this.tileTag.text = this.originali+','+axialJ;
 }
 HexTileNode.prototype.getHeuristic=function(i,j){
     i=(i-(Math.floor(j/2)));
