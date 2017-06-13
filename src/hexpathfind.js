@@ -1,4 +1,5 @@
 /*global Phaser*/
+/* hexagonal A* pathfinding following http://www.policyalmanac.org/games/aStarTutorial.htm */
 
 var game = new Phaser.Game(800, 680, Phaser.AUTO, 'TutContainer', { preload: preload, create: create});
 
@@ -7,13 +8,13 @@ var levelData=
 [[-1,-1,-1,0,0,0,0,0,0,0,-1,-1,-1],
 [-1,-1,0,0,0,0,0,0,0,0,-1,-1,-1],
 [-1,-1,0,0,0,0,0,0,0,0,0,-1,-1],
-[-1,0,0,0,10,0,0,0,0,0,0,-1,-1],
+[-1,0,0,0,10,10,10,0,0,0,0,-1,-1],
 [-1,0,10,0,10,0,0,10,0,0,0,0,-1],
 [0,0,0,0,0,0,0,0,0,0,0,0,-1],
 [0,0,0,10,0,0,5,0,0,10,0,0,0],
 [0,0,0,10,0,0,0,0,0,0,10,0,-1],
 [-1,0,0,0,0,10,10,10,0,0,0,0,-1],
-[-1,0,0,0,0,0,0,0,0,0,0,-1,-1],
+[-1,0,0,0,10,0,0,0,0,0,0,-1,-1],
 [-1,-1,0,0,0,0,0,0,0,0,0,-1,-1],
 [-1,-1,0,0,0,0,0,0,0,0,-1,-1,-1],
 [-1,-1,-1,0,0,0,0,0,0,0,-1,-1,-1]];
@@ -79,8 +80,8 @@ function createLevel(){
         }
         
     }
-    hexGrid.x=hexTileWidth/2;
-    hexGrid.y=sideLength;
+    hexGrid.x=50;
+    hexGrid.y=50;
 }
 function onTap(){
     if(showingPath)return;
@@ -127,72 +128,102 @@ function findPath(tile){//passes in a hexTileNode
         //success, destination reached
         console.log('end');
     }else{//find all neighbors
-        var neighbors=getNeighbors(tile.originali,tile.originalj);
+        var neighbors=getNeighbors(tile.originali,tile.convertedj);
         var newPt=new Phaser.Point();
         var hexTile;
         var totalCost=0;
         var currentLowestCost=100000;
         var nextTile;
+        
         //find heuristics & cost for all neighbors
         while(neighbors.length){
             newPt=neighbors.shift();
             hexTile=hexGrid.getByName("tile"+newPt.x+"_"+newPt.y);
             if(!hexTile.nodeClosed){//if node was not already calculated
-                if((hexTile.nodeVisited && tile.cost+10<hexTile.cost) ||
+                //it should be tile.cost+10<hexTile.cost but it gets us trapped in caves
+                if((hexTile.nodeVisited && (tile.cost+10)<hexTile.cost) ||
                 !hexTile.nodeVisited){//if node was already visited, compare cost
                     hexTile.getHeuristic(endTile.originali,endTile.originalj);
                     hexTile.cost=tile.cost+10;
                     hexTile.previousNode=tile;//point to previous node
                     hexTile.nodeVisited=true;
-                    //hexTile.showDifference();//display heuristic & cost
+                    hexTile.showDifference();//display heuristic & cost
                 }else continue;
                 totalCost=hexTile.cost+hexTile.heuristic;
                 if(totalCost<currentLowestCost){//selct the next neighbour with lowest total cost
                     nextTile=hexTile;
                     currentLowestCost=totalCost;
                 }
+            }else{
+                console.log('node closed');
             }
         }
         tile.nodeClosed=true;
         if(nextTile!=null){
             findPath(nextTile);//call algo on the new tile
             nextTileToCall=nextTile;
-        }else{
+        }else{//no path, check if there is a second visited neighbour
             nextTileToCall=null;
+            //black mark the last tile & re do the whole thing.
         }
     }
 }
 function getNeighbors(i,j){
-    //first add common elements for odd & even cols
+    //coordinates are in axial
     var tempArray=[];
-    var newi=i-1;//t even odd
-    var newj=j;
-    populateNeighbor(newi,newj,tempArray);
-    newi=i+1;
-    newj=j;//b even odd
-    populateNeighbor(newi,newj,tempArray);
-    newi=i;
-    newj=j-1;//lt odd lb even
-    populateNeighbor(newi,newj,tempArray);
-    newi=i;//rt odd rb even
-    newj=j+1;
-    populateNeighbor(newi,newj,tempArray);
-    //now add the different neighbours for odd & even cols
-    if(j%2==0){//based on j
-        newi=i-1;
-        newj=j-1;//lt even
-        populateNeighbor(newi,newj,tempArray);
-        newj=j+1;//rt even 
-        populateNeighbor(newi,newj,tempArray);
-    }else{
-        newi=i+1;
-        newj=j-1;//lb odd
-        populateNeighbor(newi,newj,tempArray);
-        newj=j+1;//rb odd
-        populateNeighbor(newi,newj,tempArray);
-    }
+    var axialPoint=new Phaser.Point(i,j);
+    var neighbourPoint=new Phaser.Point();
+    //axialPoint=offsetToAxial(axialPoint);
+    neighbourPoint.x=axialPoint.x-1;//tr
+    neighbourPoint.y=axialPoint.y;
+    populateNeighbor(neighbourPoint.x,neighbourPoint.y,tempArray);
+    neighbourPoint.x=axialPoint.x+1;//bl
+    neighbourPoint.y=axialPoint.y;
+    populateNeighbor(neighbourPoint.x,neighbourPoint.y,tempArray);
+    neighbourPoint.x=axialPoint.x;//l
+    neighbourPoint.y=axialPoint.y-1;
+    populateNeighbor(neighbourPoint.x,neighbourPoint.y,tempArray);
+    neighbourPoint.x=axialPoint.x;//r
+    neighbourPoint.y=axialPoint.y+1;
+    populateNeighbor(neighbourPoint.x,neighbourPoint.y,tempArray);
+    neighbourPoint.x=axialPoint.x-1;//tr
+    neighbourPoint.y=axialPoint.y+1;
+    populateNeighbor(neighbourPoint.x,neighbourPoint.y,tempArray);
+    neighbourPoint.x=axialPoint.x+1;//bl
+    neighbourPoint.y=axialPoint.y-1;
+    populateNeighbor(neighbourPoint.x,neighbourPoint.y,tempArray);
     
+    //sort neighbours by tile cost so that we get better path-
+    //non visited nodes come first, 
+    //visited nodes get sorted by cost where higher cost come first
+    //closed nodes come last
+    
+    //tempArray.sort(costSort);
+    for (var j = 0; j < tempArray.length; j++)
+    {
+        var hexTile=hexGrid.getByName("tile"+tempArray[j].x+"_"+tempArray[j].y);
+        console.log(hexTile.cost+';'+hexTile.nodeVisited+';'+hexTile.nodeClosed);
+    }
     return tempArray;
+}
+function costSort(a,b){
+    var hexTileA=hexGrid.getByName("tile"+a.x+"_"+a.y);
+    var hexTileB=hexGrid.getByName("tile"+b.x+"_"+b.y);
+    if(hexTileA.nodeClosed && hexTileB.nodeClosed){
+        return 0;
+    }else if(hexTileA.nodeClosed && !hexTileB.nodeClosed){
+        return 1;
+    }else if(!hexTileA.nodeClosed && hexTileB.nodeClosed){
+        return -1;
+    }else if(hexTileA.nodeVisited && hexTileB.nodeVisited){
+        return hexTileB.cost-hexTileA.cost;
+    }else if(!hexTileA.nodeVisited && !hexTileB.nodeVisited){
+        return hexTileB.cost-hexTileA.cost;
+    }else if(!hexTileA.nodeVisited && hexTileB.nodeVisited){
+        return -1;
+    }else if(hexTileA.nodeVisited && !hexTileB.nodeVisited){
+        return 1;
+    }
 }
 function checkForOccuppancy(i,j){//check if the tile is outside effective area or has a mine
     var tileType=levelData[i][j];
@@ -208,13 +239,11 @@ function checkforBoundary(i,j){//check if the tile is outside level data array
     return false;
 }
 function populateNeighbor(i,j, tempArray){//check & add new neighbor
-    var newPt=new Phaser.Point();
-    if(!checkforBoundary(i,j)){
-        if(!checkForOccuppancy(i,j)){
-            newPt=new Phaser.Point();
-            newPt.x=i;
-            newPt.y=j;
-            tempArray.push(newPt);
+    var nPoint=new Phaser.Point(i,j);
+    nPoint=axialToOffset(nPoint);
+    if(!checkforBoundary(nPoint.x,nPoint.y)){
+        if(!checkForOccuppancy(nPoint.x,nPoint.y)){
+            tempArray.push(nPoint.clone());
         }
     }
 }
