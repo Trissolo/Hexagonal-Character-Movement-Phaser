@@ -166,13 +166,6 @@ function checkCorner(corner){
     }
     return false;
 }
-function findCubicHexTile(){
-    var pos=game.input.activePointer.position;
-    pos.x-=hexGrid.x;
-    pos.y-=hexGrid.y;
-    //console.log(pos.x+':'+ pos.y);
-    return screenToAxial(pos);
-}
 function screenToAxial(screenPoint){
     var axialPoint=new Phaser.Point();
     axialPoint.x=screenPoint.y/(1.5*sideLength);

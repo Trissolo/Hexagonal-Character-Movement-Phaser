@@ -4,8 +4,6 @@ HexTileNode = function (game, x, y, tileImage,isVertical, i,j, type) {
     Phaser.Sprite.call(this, game, x, y, tileImage);
     this.anchor.setTo(0.5, 0.5);
     this.tileTag = game.make.text(0,0,type);
-    //this.tileTag = game.make.text(0,0,'i'+(i)+',j'+(j));
-    //this.tileTag = game.make.text(0,0,'i'+(i-6)+',j'+(j-6));
     this.tileTag.touchEnabled=false;    
     this.tileTag.anchor.setTo(0.5, 0.5);
     this.tileTag.addColor('#ffffff',0);
@@ -26,10 +24,9 @@ HexTileNode = function (game, x, y, tileImage,isVertical, i,j, type) {
     this.originalj=j;
     //we need to do this coordinate conversion ie, offset to axial coordinates which makes everything easier.
     //the cubic version is easier to find from this as x+y+z=0
-    this.convertedi=(i-(Math.floor(j/2)));//display x = coordinate x' - floor(y/2)
+    this.convertedi=(i-(Math.floor(j/2)));
+    this.convertedj=(j-(Math.floor(i/2)));
     this.clearNode();
-    //this.tileTag.visible=true;       
-    //this.tileTag.text = this.convertedi+':'+this.originalj;
 };
 
 HexTileNode.prototype = Object.create(Phaser.Sprite.prototype);
@@ -47,10 +44,9 @@ HexTileNode.prototype.toggleMark=function(){
     return this.marked;
 }
 HexTileNode.prototype.showDifference=function(){
-    //this.getHeuristic(i,j);
     this.tint=Phaser.Color.interpolateColor('0x0000ff','0xffffff',12, this.heuristic,1);//'0xffffff';
     this.tileTag.visible=true;  
-    this.tileTag.text = this.heuristic+';'+this.cost;
+    this.tileTag.text = this.heuristic;//+';'+this.cost;
 }
 HexTileNode.prototype.showAxial=function(){
     this.tileTag.visible=true;   
@@ -58,9 +54,9 @@ HexTileNode.prototype.showAxial=function(){
     this.tileTag.text = this.originali+','+axialJ;
 }
 HexTileNode.prototype.getHeuristic=function(i,j){
-    i=(i-(Math.floor(j/2)));
-    var di=i-this.convertedi;
-    var dj=j-this.originalj;
+    j=(j-(Math.floor(i/2)));
+    var di=i-this.originali;
+    var dj=j-this.convertedj;
     var si=Math.sign(di);
     var sj=Math.sign(dj);
     var absi=di*si;
